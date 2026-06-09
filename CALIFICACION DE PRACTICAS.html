@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Calificación de Prácticas</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:linear-gradient(135deg,#f0f4ff 0%,#fafbff 60%,#f5f0ff 100%);min-height:100vh;font-family:Georgia,'Times New Roman',serif;}
+    input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+    input[type=number]{-moz-appearance:textfield;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+    .card{animation:fadeIn 0.3s ease both;background:white;border-radius:16px;box-shadow:0 2px 12px rgba(99,102,241,0.08);}
+    .date-pill{cursor:pointer;border:none;border-radius:20px;padding:6px 14px;font-size:13px;font-family:sans-serif;transition:all 0.15s;}
+    .date-pill:hover{transform:translateY(-1px);}
+    @media(max-width:700px){.main-grid{grid-template-columns:1fr !important;}}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState} = React;
+
+const ALL_STUDENTS = [
+  "Miura Machuca, Jesús Makio","Nontol Huerta, Luis Alessandro",
+  "Chavez Ríos, Milagros Paola","Vásquez Chavez, Erick Issac",
+  "Poma Mendoza, Mireya Estefanía","Pajuelo Poma, Juan Ignacio",
+  "Amaya Retamozo, Milagros Vanessa","Espinoza Carrillo, Andrea Carolina",
+  "Fabián Cubas, María del Carmen","Esteban Trucios, Deina Julieth",
+  "Quintana Sivirichi, Karen Vanessa","Reyes Mozo, Jessica Alejandra",
+  "Tahua Lujan, Rogger Michael","Torres Ingol, Daniel Fernando",
+  "Gabriel Vera, Diana","Flores Huaylla, Linda Mirella",
+  "Diaz Campos, Leonardo Joel","Arauco Carhuas, Isabel Milagros",
+  "Romani Vasquez, Gina Alessandra","Rivera Sanchez, Patricia Ruth Estela",
+];
+
+const TEACHERS = [
+  "Villar Chamorro Aurora","Cabrera Ramos Santiago","Cano Cárdenas Julio J.",
+  "Santiváñez Pimentel Álvaro","Ramírez Cabrera Juan","Vera Loyola Edy Martin",
+  "Ramírez Cárdenas Jhonny I.","Arce Benites Miguel","Hijar Sifuentes Yesenia Adelita",
+  "Iván Reyes Armas","Orestes Cabanillas Sánchez","Jorge Eduardo Escudero Mamani",
+  "Humberto Paul Marcelo Pacheco",
+];
+
+const MONTHS_ES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const DAYS_ES=["Do","Lu","Ma","Mi","Ju","Vi","Sá"];
+const toISO=(y,m,d)=>`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+const formatLabel=(iso)=>{const[y,m,d]=iso.split("-");return`${d}/${m}/${y}`;};
+
+function TeacherAutocomplete({value,onChange}){
+  const[open,setOpen]=useState(false);
+  const filtered=value.length>0?TEACHERS.filter(t=>t.toLowerCase().includes(value.toLowerCase())):[];
+  return(
+    <div style={{position:"relative",flex:1}}>
+      <input value={value} onChange={e=>{onChange(e.target.value);setOpen(true);}}
+        onFocus={()=>setOpen(true)} onBlur={()=>setTimeout(()=>setOpen(false),150)}
+        placeholder="Nombre completo del docente" autoComplete="off"
+        style={{border:"1px solid #e2e8f0",borderRadius:"8px",padding:"6px 12px",fontSize:"14px",fontFamily:"sans-serif",width:"100%",outline:"none"}}/>
+      {open&&filtered.length>0&&(
+        <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:100,background:"white",border:"1px solid #e2e8f0",borderRadius:"10px",boxShadow:"0 8px 24px rgba(99,102,241,0.15)",marginTop:"4px",overflow:"hidden"}}>
+          {filtered.map(t=>(
+            <div key={t} onMouseDown={()=>{onChange(t);setOpen(false);}}
+              style={{padding:"9px 14px",fontSize:"14px",fontFamily:"sans-serif",cursor:"pointer",color:"#1e293b",borderBottom:"1px solid #f8fafc"}}
+              onMouseEnter={e=>e.currentTarget.style.background="#eef2ff"}
+              onMouseLeave={e=>e.currentTarget.style.background="white"}>{t}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MiniCalendar({selectedDates,onToggleDate}){
+  const today=new Date();
+  const[viewYear,setViewYear]=useState(today.getFullYear());
+  const[viewMonth,setViewMonth]=useState(today.getMonth());
+  const firstDay=new Date(viewYear,viewMonth,1).getDay();
+  const daysInMonth=new Date(viewYear,viewMonth+1,0).getDate();
+  const cells=[];
+  for(let i=0;i<firstDay;i++)cells.push(null);
+  for(let d=1;d<=daysInMonth;d++)cells.push(d);
+  const prevMonth=()=>{if(viewMonth===0){setViewYear(y=>y-1);setViewMonth(11);}else setViewMonth(m=>m-1);};
+  const nextMonth=()=>{if(viewMonth===11){setViewYear(y=>y+1);setViewMonth(0);}else setViewMonth(m=>m+1);};
+  return(
+    <div style={{userSelect:"none"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"12px"}}>
+        <button onClick={prevMonth} style={{background:"#f1f5f9",border:"none",borderRadius:"8px",width:"32px",height:"32px",cursor:"pointer",fontSize:"18px",color:"#475569"}}>‹</button>
+        <span style={{fontFamily:"sans-serif",fontWeight:"bold",fontSize:"15px",color:"#1e1b4b"}}>{MONTHS_ES[viewMonth]} {viewYear}</span>
+        <button onClick={nextMonth} style={{background:"#f1f5f9",border:"none",borderRadius:"8px",width:"32px",height:"32px",cursor:"pointer",fontSize:"18px",color:"#475569"}}>›</button>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:"3px",marginBottom:"4px"}}>
+        {DAYS_ES.map(d=><div key={d} style={{textAlign:"center",fontSize:"11px",color:"#94a3b8",fontFamily:"sans-serif",fontWeight:"bold",padding:"4px 0"}}>{d}</div>)}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:"3px"}}>
+        {cells.map((day,i)=>{
+          if(!day)return<div key={`e${i}`}/>;
+          const iso=toISO(viewYear,viewMonth,day);
+          const isSel=selectedDates.includes(iso);
+          const isToday=iso===toISO(today.getFullYear(),today.getMonth(),today.getDate());
+          return(
+            <button key={iso} onClick={()=>onToggleDate(iso)}
+              style={{border:isToday&&!isSel?"2px solid #6366f1":"2px solid transparent",borderRadius:"8px",
+                background:isSel?"#6366f1":"transparent",color:isSel?"white":isToday?"#6366f1":"#334155",
+                fontFamily:"sans-serif",fontSize:"13px",fontWeight:isSel||isToday?"bold":"normal",
+                cursor:"pointer",padding:"6px 2px",textAlign:"center",transition:"all 0.15s"}}
+              onMouseEnter={e=>{if(!isSel)e.currentTarget.style.background="#e0e7ff";}}
+              onMouseLeave={e=>{if(!isSel)e.currentTarget.style.background="transparent";}}>{day}</button>
+          );
+        })}
+      </div>
+      {selectedDates.length>0&&(
+        <div style={{marginTop:"14px",borderTop:"1px solid #f1f5f9",paddingTop:"12px"}}>
+          <p style={{margin:"0 0 8px",fontSize:"11px",color:"#94a3b8",fontFamily:"sans-serif",textTransform:"uppercase",letterSpacing:"1px"}}>Fechas seleccionadas</p>
+          <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+            {[...selectedDates].sort().map(iso=>(
+              <span key={iso} style={{background:"#eef2ff",color:"#4f46e5",borderRadius:"6px",padding:"3px 10px",fontSize:"12px",fontFamily:"sans-serif",display:"inline-flex",alignItems:"center",gap:"5px"}}>
+                {formatLabel(iso)}
+                <span onClick={()=>onToggleDate(iso)} style={{cursor:"pointer",color:"#a5b4fc",fontWeight:"bold",fontSize:"14px",lineHeight:1}}>×</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GradeCell({value,onChange}){
+  return(
+    <input type="number" min="0" max="20" value={value} onChange={e=>onChange(e.target.value)}
+      style={{width:"54px",padding:"6px 4px",textAlign:"center",border:"1px solid #dde3ed",borderRadius:"6px",fontSize:"14px",fontFamily:"inherit",
+        background:value===""?"#f9fafb":value>=11?"#f0fdf4":"#fef2f2",
+        color:value===""?"#9ca3af":value>=11?"#166534":"#991b1b",outline:"none"}}
+      onFocus={e=>e.target.style.borderColor="#6366f1"}
+      onBlur={e=>e.target.style.borderColor="#dde3ed"}
+      placeholder="—"/>
+  );
+}
+
+function App(){
+  const todayISO=new Date().toISOString().split("T")[0];
+  const[selectedDates,setSelectedDates]=useState([todayISO]);
+  const[activeDate,setActiveDate]=useState(todayISO);
+  const[grades,setGrades]=useState(()=>{const g={};ALL_STUDENTS.forEach(s=>{g[s]={};});return g;});
+  const[courseInfo,setCourseInfo]=useState({curso:"Ginecología",docente:""});
+  const[selectedStudents,setSelectedStudents]=useState([]);
+  const[studentSearch,setStudentSearch]=useState("");
+  const[studentDropOpen,setStudentDropOpen]=useState(false);
+  const[showReport,setShowReport]=useState(false);
+  const[copied,setCopied]=useState(false);
+  const[downloadingImg,setDownloadingImg]=useState(false);
+  const[imgDataUrl,setImgDataUrl]=useState(null);
+
+  const filteredSuggestions=studentSearch.length>0
+    ?ALL_STUDENTS.filter(s=>s.toLowerCase().includes(studentSearch.toLowerCase())&&!selectedStudents.includes(s)):[];
+
+  const addStudent=name=>{setSelectedStudents(p=>[...p,name]);setStudentSearch("");setStudentDropOpen(false);};
+  const removeStudent=name=>setSelectedStudents(p=>p.filter(s=>s!==name));
+
+  const toggleDate=iso=>{
+    if(selectedDates.includes(iso)){
+      if(selectedDates.length===1)return;
+      const rem=selectedDates.filter(d=>d!==iso);
+      setSelectedDates(rem);
+      if(activeDate===iso)setActiveDate(rem[rem.length-1]);
+      setGrades(prev=>{const g={...prev};Object.keys(g).forEach(s=>{const c={...g[s]};delete c[iso];g[s]=c;});return g;});
+    }else{setSelectedDates(p=>[...p,iso]);setActiveDate(iso);}
+  };
+
+  const setGrade=(student,dateKey,value)=>{
+    const num=value===""?"":(Math.min(20,Math.max(0,Number(value))));
+    setGrades(prev=>({...prev,[student]:{...prev[student],[dateKey]:num}}));
+  };
+
+  const getAverage=student=>{
+    const vals=Object.values(grades[student]||{}).filter(v=>v!==""&&v!==undefined);
+    if(!vals.length)return null;
+    return(vals.reduce((a,b)=>a+Number(b),0)/vals.length).toFixed(1);
+  };
+
+  const getDateAverage=dateKey=>{
+    const vals=selectedStudents.map(s=>grades[s]?.[dateKey]).filter(v=>v!==""&&v!==undefined);
+    if(!vals.length)return null;
+    return(vals.reduce((a,b)=>a+Number(b),0)/vals.length).toFixed(1);
+  };
+
+  const copyReport=()=>{
+    const el=document.getElementById("report-content");
+    if(!el)return;
+    const range=document.createRange();
+    range.selectNodeContents(el);
+    const sel=window.getSelection();
+    sel.removeAllRanges();sel.addRange(range);
+    document.execCommand("copy");sel.removeAllRanges();
+    setCopied(true);setTimeout(()=>setCopied(false),2500);
+  };
+
+  const generateImage=async()=>{
+    setDownloadingImg(true);
+    try{
+      if(!window.html2canvas){
+        await new Promise((res,rej)=>{
+          const s=document.createElement("script");
+          s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+          s.onload=res;s.onerror=rej;document.head.appendChild(s);
+        });
+      }
+      const el=document.getElementById("report-content");
+      const canvas=await window.html2canvas(el,{scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false});
+      setImgDataUrl(canvas.toDataURL("image/jpeg",0.95));
+    }catch(e){alert("No se pudo generar la imagen.");}
+    setDownloadingImg(false);
+  };
+
+  const sortedDates=[...selectedDates].sort();
+
+  return(
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#f0f4ff 0%,#fafbff 60%,#f5f0ff 100%)",fontFamily:"Georgia,'Times New Roman',serif",padding:"32px 16px"}}>
+      <style>{`*{box-sizing:border-box;}input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}.card{animation:fadeIn 0.3s ease both;}.date-pill{cursor:pointer;border:none;border-radius:20px;padding:6px 14px;font-size:13px;font-family:sans-serif;transition:all 0.15s;}.date-pill:hover{transform:translateY(-1px);}@media(max-width:700px){.main-grid{grid-template-columns:1fr !important;}}`}</style>
+
+      <div style={{maxWidth:"1060px",margin:"0 auto"}}>
+
+        <div style={{textAlign:"center",marginBottom:"28px"}}>
+          <h1 style={{fontSize:"clamp(22px,4vw,32px)",color:"#1e1b4b",margin:"0 0 6px",fontWeight:"bold"}}>Calificación de Prácticas</h1>
+          <p style={{color:"#64748b",margin:0,fontSize:"14px",fontFamily:"sans-serif"}}>Hospital Nacional Docente Madre Niño San Bartolomé · Ginecología</p>
+        </div>
+
+        <div className="card" style={{padding:"18px 22px",marginBottom:"20px",display:"flex",gap:"14px",flexWrap:"wrap",alignItems:"center"}}>
+          <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
+            <span style={{fontSize:"13px",color:"#64748b",fontFamily:"sans-serif"}}>Curso:</span>
+            <input value={courseInfo.curso} onChange={e=>setCourseInfo(p=>({...p,curso:e.target.value}))}
+              style={{border:"1px solid #e2e8f0",borderRadius:"8px",padding:"6px 12px",fontSize:"14px",fontFamily:"sans-serif",width:"180px"}}/>
+          </div>
+          <div style={{display:"flex",gap:"6px",alignItems:"center",flex:1,minWidth:"220px"}}>
+            <span style={{fontSize:"13px",color:"#64748b",fontFamily:"sans-serif",whiteSpace:"nowrap"}}>Docente:</span>
+            <TeacherAutocomplete value={courseInfo.docente} onChange={v=>setCourseInfo(p=>({...p,docente:v}))}/>
+          </div>
+        </div>
+
+        <div className="main-grid" style={{display:"grid",gridTemplateColumns:"300px 1fr",gap:"20px",alignItems:"start"}}>
+
+          <div className="card" style={{padding:"20px"}}>
+            <p style={{margin:"0 0 14px",fontSize:"12px",color:"#94a3b8",fontFamily:"sans-serif",letterSpacing:"1px",textTransform:"uppercase"}}>Fechas de práctica</p>
+            <MiniCalendar selectedDates={selectedDates} onToggleDate={toggleDate}/>
+          </div>
+
+          <div style={{display:"flex",flexDirection:"column",gap:"20px"}}>
+
+            {sortedDates.length>1&&(
+              <div className="card" style={{padding:"14px 18px",display:"flex",gap:"8px",flexWrap:"wrap",alignItems:"center"}}>
+                <span style={{fontSize:"12px",color:"#94a3b8",fontFamily:"sans-serif",textTransform:"uppercase",letterSpacing:"1px"}}>Ver:</span>
+                {sortedDates.map(iso=>{
+                  const active=iso===activeDate;const avg=getDateAverage(iso);
+                  return(<button key={iso} className="date-pill" onClick={()=>setActiveDate(iso)}
+                    style={{background:active?"#6366f1":"#f1f5f9",color:active?"white":"#475569",fontWeight:active?"bold":"normal",boxShadow:active?"0 4px 10px rgba(99,102,241,0.3)":"none"}}>
+                    {formatLabel(iso)}{avg&&<span style={{marginLeft:"5px",opacity:0.75,fontSize:"11px"}}>({avg})</span>}
+                  </button>);
+                })}
+              </div>
+            )}
+
+            <div className="card" style={{padding:"20px 22px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px",flexWrap:"wrap",gap:"8px"}}>
+                <h2 style={{margin:0,fontSize:"16px",color:"#1e1b4b"}}>Alumnos en práctica</h2>
+                <div style={{display:"flex",gap:"8px"}}>
+                  <button onClick={()=>setSelectedStudents([...ALL_STUDENTS])} style={{background:"#f1f5f9",border:"none",borderRadius:"6px",padding:"5px 12px",fontFamily:"sans-serif",fontSize:"12px",color:"#475569",cursor:"pointer"}}>Todos</button>
+                  <button onClick={()=>setSelectedStudents([])} style={{background:"#fef2f2",border:"none",borderRadius:"6px",padding:"5px 12px",fontFamily:"sans-serif",fontSize:"12px",color:"#991b1b",cursor:"pointer"}}>Limpiar</button>
+                </div>
+              </div>
+              <div style={{position:"relative",marginBottom:"12px"}}>
+                <input value={studentSearch} onChange={e=>{setStudentSearch(e.target.value);setStudentDropOpen(true);}}
+                  onFocus={()=>setStudentDropOpen(true)} onBlur={()=>setTimeout(()=>setStudentDropOpen(false),150)}
+                  placeholder="Buscar alumno por nombre o apellido..." autoComplete="off"
+                  style={{width:"100%",border:"1px solid #e2e8f0",borderRadius:"8px",padding:"8px 14px",fontSize:"14px",fontFamily:"sans-serif",outline:"none"}}/>
+                {studentDropOpen&&filteredSuggestions.length>0&&(
+                  <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:200,background:"white",border:"1px solid #e2e8f0",borderRadius:"10px",boxShadow:"0 8px 24px rgba(99,102,241,0.15)",marginTop:"4px",overflow:"hidden",maxHeight:"200px",overflowY:"auto"}}>
+                    {filteredSuggestions.map(s=>(
+                      <div key={s} onMouseDown={()=>addStudent(s)}
+                        style={{padding:"9px 14px",fontSize:"14px",fontFamily:"sans-serif",cursor:"pointer",color:"#1e293b",borderBottom:"1px solid #f8fafc"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="#eef2ff"}
+                        onMouseLeave={e=>e.currentTarget.style.background="white"}>{s}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                {selectedStudents.map(s=>(
+                  <span key={s} style={{background:"#eef2ff",color:"#4338ca",borderRadius:"20px",padding:"4px 10px 4px 12px",fontSize:"12px",fontFamily:"sans-serif",display:"inline-flex",alignItems:"center",gap:"6px"}}>
+                    {s}<span onClick={()=>removeStudent(s)} style={{cursor:"pointer",color:"#a5b4fc",fontWeight:"bold",fontSize:"15px",lineHeight:1}}>×</span>
+                  </span>
+                ))}
+                {selectedStudents.length===0&&<span style={{color:"#94a3b8",fontFamily:"sans-serif",fontSize:"13px"}}>Ningún alumno seleccionado. Busca y agrega alumnos arriba.</span>}
+              </div>
+            </div>
+
+            <div className="card" style={{padding:"22px",overflowX:"auto"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px",flexWrap:"wrap",gap:"10px"}}>
+                <h2 style={{margin:0,fontSize:"17px",color:"#1e1b4b"}}>Notas — <span style={{color:"#6366f1"}}>{formatLabel(activeDate)}</span></h2>
+                {getDateAverage(activeDate)&&<div style={{background:"#fef2f2",color:"#991b1b",borderRadius:"8px",padding:"5px 14px",fontFamily:"sans-serif",fontSize:"13px",fontWeight:"bold"}}>Promedio del día: {getDateAverage(activeDate)}/20</div>}
+              </div>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead>
+                  <tr style={{borderBottom:"2px solid #f1f5f9"}}>
+                    <th style={{textAlign:"left",padding:"9px 10px",fontSize:"11px",color:"#94a3b8",fontFamily:"sans-serif",textTransform:"uppercase",width:"32px"}}>#</th>
+                    <th style={{textAlign:"left",padding:"9px 12px",fontSize:"11px",color:"#94a3b8",fontFamily:"sans-serif",textTransform:"uppercase"}}>Alumno</th>
+                    <th style={{textAlign:"center",padding:"9px 12px",fontSize:"11px",color:"#94a3b8",fontFamily:"sans-serif",textTransform:"uppercase"}}>Nota (0–20)</th>
+                    <th style={{textAlign:"center",padding:"9px 12px",fontSize:"11px",color:"#94a3b8",fontFamily:"sans-serif",textTransform:"uppercase"}}>Promedio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedStudents.map((student,idx)=>{
+                    const avg=getAverage(student);
+                    return(
+                      <tr key={student} style={{borderBottom:"1px solid #f8fafc",background:idx%2===0?"white":"#fafbff"}}>
+                        <td style={{padding:"10px",textAlign:"center",fontSize:"12px",color:"#cbd5e1",fontFamily:"sans-serif"}}>{idx+1}</td>
+                        <td style={{padding:"10px 12px",fontSize:"14px",color:"#1e293b"}}>{student}</td>
+                        <td style={{padding:"10px 12px",textAlign:"center"}}>
+                          <GradeCell value={grades[student]?.[activeDate]??""} onChange={v=>setGrade(student,activeDate,v)}/>
+                        </td>
+                        <td style={{padding:"10px 12px",textAlign:"center",fontFamily:"sans-serif"}}>
+                          {avg!==null?<span style={{fontWeight:"bold",fontSize:"14px",color:"#991b1b",background:"#fef2f2",padding:"3px 10px",borderRadius:"6px"}}>{avg}</span>:<span style={{color:"#d1d5db"}}>—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {selectedStudents.length===0&&<tr><td colSpan={4} style={{padding:"24px",textAlign:"center",color:"#94a3b8",fontFamily:"sans-serif",fontSize:"14px"}}>Selecciona alumnos en el panel de arriba</td></tr>}
+                </tbody>
+              </table>
+            </div>
+
+            {sortedDates.length>1&&(
+              <div className="card" style={{padding:"22px",overflowX:"auto"}}>
+                <h2 style={{margin:"0 0 16px",fontSize:"17px",color:"#1e1b4b"}}>Resumen por fechas</h2>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px",fontFamily:"sans-serif"}}>
+                  <thead>
+                    <tr style={{borderBottom:"2px solid #f1f5f9"}}>
+                      <th style={{textAlign:"left",padding:"8px 10px",color:"#94a3b8",textTransform:"uppercase",fontSize:"10px"}}>Alumno</th>
+                      {sortedDates.map(iso=><th key={iso} style={{textAlign:"center",padding:"8px 8px",color:"#94a3b8",textTransform:"uppercase",fontSize:"10px"}}>{formatLabel(iso)}</th>)}
+                      <th style={{textAlign:"center",padding:"8px 10px",color:"#6366f1",textTransform:"uppercase",fontSize:"10px"}}>Prom.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedStudents.map((student,idx)=>{
+                      const avg=getAverage(student);
+                      return(
+                        <tr key={student} style={{borderBottom:"1px solid #f8fafc",background:idx%2===0?"white":"#fafbff"}}>
+                          <td style={{padding:"7px 10px",color:"#1e293b",fontSize:"12px"}}>{student}</td>
+                          {sortedDates.map(iso=>{const g=grades[student]?.[iso];return(
+                            <td key={iso} style={{textAlign:"center",padding:"7px 8px"}}>
+                              {g!==""&&g!==undefined?<span style={{color:g>=11?"#166534":"#991b1b",fontWeight:"600"}}>{g}</span>:<span style={{color:"#e2e8f0"}}>—</span>}
+                            </td>);
+                          })}
+                          <td style={{textAlign:"center",padding:"7px 10px"}}>
+                            {avg!==null?<strong style={{color:"#991b1b"}}>{avg}</strong>:<span style={{color:"#e2e8f0"}}>—</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    <tr style={{borderTop:"2px solid #f1f5f9",background:"#fafbff"}}>
+                      <td style={{padding:"7px 10px",color:"#6366f1",fontWeight:"bold",fontSize:"11px",textTransform:"uppercase",letterSpacing:"1px"}}>Promedio</td>
+                      {sortedDates.map(iso=>{const avg=getDateAverage(iso);return(
+                        <td key={iso} style={{textAlign:"center",padding:"7px 8px"}}>
+                          {avg?<strong style={{color:avg>=11?"#166534":"#dc2626"}}>{avg}</strong>:<span style={{color:"#e2e8f0"}}>—</span>}
+                        </td>);
+                      })}
+                      <td/>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="card" style={{padding:"22px"}}>
+              <h2 style={{margin:"0 0 6px",fontSize:"17px",color:"#1e1b4b"}}>Reporte para correo</h2>
+              <p style={{margin:"0 0 14px",color:"#94a3b8",fontSize:"13px",fontFamily:"sans-serif"}}>Genera una tabla visual lista para copiar y pegar en Gmail u Outlook.</p>
+              <button onClick={()=>{setShowReport(true);setCopied(false);}}
+                style={{background:"#6366f1",color:"white",border:"none",borderRadius:"8px",padding:"11px 24px",fontFamily:"sans-serif",fontSize:"15px",cursor:"pointer",fontWeight:"bold"}}>
+                📊 Ver reporte
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      {showReport&&(
+        <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(15,15,35,0.65)",backdropFilter:"blur(4px)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"24px 16px",overflowY:"auto"}}
+          onClick={e=>{if(e.target===e.currentTarget)setShowReport(false);}}>
+          <div style={{background:"white",borderRadius:"20px",width:"100%",maxWidth:"820px",boxShadow:"0 24px 64px rgba(0,0,0,0.25)",overflow:"hidden"}}>
+
+            <div style={{background:"linear-gradient(135deg,#1e1b4b,#4338ca)",padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <h2 style={{margin:"0 0 2px",color:"white",fontSize:"18px"}}>Reporte de Calificaciones</h2>
+                <p style={{margin:0,color:"rgba(255,255,255,0.65)",fontSize:"13px",fontFamily:"sans-serif"}}>Copia el reporte y pégalo en el cuerpo de tu correo</p>
+              </div>
+              <button onClick={()=>setShowReport(false)} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",borderRadius:"8px",width:"36px",height:"36px",fontSize:"20px",cursor:"pointer",lineHeight:1}}>×</button>
+            </div>
+
+            <div style={{background:"#fefce8",borderBottom:"1px solid #fde68a",padding:"12px 28px",fontFamily:"sans-serif",fontSize:"13px",color:"#92400e",display:"flex",alignItems:"center",gap:"10px"}}>
+              <span style={{fontSize:"18px"}}>📋</span>
+              <span><strong>Paso 1:</strong> Presiona <strong>"Copiar reporte"</strong> abajo &nbsp;·&nbsp; <strong>Paso 2:</strong> Abre Gmail → Nuevo correo → Pega en el cuerpo</span>
+            </div>
+
+            <div style={{padding:"16px",overflowX:"hidden"}}>
+              <div id="report-content" style={{background:"white",width:"260px",margin:"0 auto",fontFamily:"sans-serif"}}>
+                <div style={{background:"linear-gradient(135deg,#1e1b4b,#4338ca)",padding:"12px 14px",borderRadius:"10px 10px 0 0"}}>
+                  <div style={{color:"white",fontSize:"13px",fontWeight:"bold",marginBottom:"2px"}}>Calificación de Prácticas</div>
+                  <div style={{color:"rgba(255,255,255,0.65)",fontSize:"9px"}}>San Bartolomé · {courseInfo.curso}</div>
+                </div>
+                <div style={{background:"#f0f4ff",padding:"7px 14px",borderLeft:"3px solid #6366f1",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px"}}>
+                  <div>
+                    <div style={{fontSize:"8px",color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.8px"}}>Docente</div>
+                    <div style={{fontSize:"11px",fontWeight:"bold",color:"#1e1b4b"}}>{courseInfo.docente||"—"}</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:"8px",color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.8px"}}>Fecha</div>
+                    <div style={{fontSize:"10px",fontWeight:"bold",color:"#1e1b4b"}}>{new Date().toLocaleDateString("es-PE")}</div>
+                  </div>
+                </div>
+                {(()=>{
+                  const sd=[...selectedDates].sort();
+                  const actStudents=selectedStudents.filter(s=>sd.some(iso=>grades[s]?.[iso]!==""&&grades[s]?.[iso]!==undefined));
+                  return(<>
+                    <div style={{display:"flex",background:"#1e1b4b"}}>
+                      <div style={{flex:2,padding:"5px 8px",fontSize:"9px",color:"rgba(255,255,255,0.7)",fontWeight:"bold",textTransform:"uppercase"}}>Alumno</div>
+                      {sd.map(iso=><div key={iso} style={{flex:1,padding:"5px 2px",fontSize:"8px",color:"rgba(255,255,255,0.7)",textAlign:"center",borderLeft:"1px solid rgba(255,255,255,0.1)"}}>{formatLabel(iso).slice(0,5)}</div>)}
+                      <div style={{width:"38px",padding:"5px 2px",fontSize:"9px",color:"#fca5a5",fontWeight:"bold",textAlign:"center",borderLeft:"1px solid rgba(255,255,255,0.15)"}}>Prom</div>
+                    </div>
+                    {actStudents.map((student,idx)=>{
+                      const avg=getAverage(student);
+                      const parts=student.split(",");
+                      const dn=parts.length>1?parts[0].trim()+",\n"+parts[1].trim():student;
+                      return(
+                        <div key={student} style={{display:"flex",alignItems:"center",background:idx%2===0?"white":"#f8faff",borderBottom:"1px solid #f1f5f9"}}>
+                          <div style={{flex:2,padding:"5px 8px",fontSize:"9px",color:"#1e293b",fontWeight:"600",lineHeight:1.3,whiteSpace:"pre-line"}}>{dn}</div>
+                          {sd.map(iso=>{const g=grades[student]?.[iso];return(
+                            <div key={iso} style={{flex:1,padding:"5px 2px",textAlign:"center",borderLeft:"1px solid #f1f5f9",fontSize:"13px",fontWeight:"700",color:(g!==""&&g!==undefined)?(g>=11?"#166534":"#991b1b"):"#e2e8f0"}}>
+                              {(g!==""&&g!==undefined)?g:"—"}
+                            </div>);})}
+                          <div style={{width:"38px",padding:"5px 2px",textAlign:"center",background:"#fef2f2",borderLeft:"1px solid #fecaca",fontSize:"13px",fontWeight:"900",color:"#b91c1c"}}>
+                            {avg!==null?avg:"—"}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>);
+                })()}
+                <div style={{background:"#1e1b4b",padding:"6px 12px",borderRadius:"0 0 10px 10px",textAlign:"center"}}>
+                  <span style={{fontSize:"8px",color:"rgba(255,255,255,0.4)"}}>App de Calificación de Prácticas · San Bartolomé</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{padding:"16px 28px 24px",display:"flex",gap:"12px",flexWrap:"wrap"}}>
+              <button onClick={copyReport}
+                style={{flex:1,background:copied?"#166534":"#6366f1",color:"white",border:"none",borderRadius:"10px",padding:"13px 24px",fontFamily:"sans-serif",fontSize:"15px",cursor:"pointer",fontWeight:"bold",transition:"background 0.2s"}}>
+                {copied?"✓ ¡Copiado! Ahora pega en tu correo":"📋 Copiar reporte"}
+              </button>
+              <button onClick={generateImage} disabled={downloadingImg}
+                style={{flex:1,background:downloadingImg?"#a5b4fc":"#0f766e",color:"white",border:"none",borderRadius:"10px",padding:"13px 24px",fontFamily:"sans-serif",fontSize:"15px",cursor:downloadingImg?"not-allowed":"pointer",fontWeight:"bold"}}>
+                {downloadingImg?"⏳ Generando...":"📷 Ver pantalla completa"}
+              </button>
+              <button onClick={()=>setShowReport(false)}
+                style={{background:"#f1f5f9",color:"#475569",border:"none",borderRadius:"10px",padding:"13px 20px",fontFamily:"sans-serif",fontSize:"15px",cursor:"pointer",fontWeight:"bold"}}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {imgDataUrl&&(
+        <div style={{position:"fixed",inset:0,zIndex:2000,background:"#000",display:"flex",flexDirection:"column"}}>
+          <div style={{flexShrink:0,width:"100%",background:"#1e1b4b",padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px"}}>
+            <div style={{fontFamily:"sans-serif",color:"white",fontSize:"13px",lineHeight:1.4}}>
+              <div style={{fontWeight:"bold",marginBottom:"2px"}}>📸 Captura de pantalla</div>
+              <div style={{opacity:0.8,fontSize:"12px"}}>Presiona <strong>botón lateral + subir volumen</strong> → se guarda en Fototeca</div>
+            </div>
+            <button onClick={()=>setImgDataUrl(null)}
+              style={{flexShrink:0,background:"rgba(255,255,255,0.15)",border:"none",color:"white",borderRadius:"8px",padding:"8px 14px",fontFamily:"sans-serif",fontSize:"14px",cursor:"pointer",fontWeight:"bold"}}>
+              ✕ Cerrar
+            </button>
+          </div>
+          <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"8px",overflow:"hidden"}}>
+            <img src={imgDataUrl} alt="Reporte" style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",display:"block",borderRadius:"8px"}}/>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+const root=ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App/>);
+</script>
+</body>
+</html>
